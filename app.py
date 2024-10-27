@@ -10,15 +10,18 @@ api_key = os.getenv("OPENAI_API_KEY")
 
 
 # Acceder a los parámetros que necesites
-name = st.query_params["name"]
-role = st.query_params["role"]
+name = '' #st.query_params["name"]
+role = '' #st.query_params["role"]
 
 st.set_page_config(page_title="IRR Tutorial", page_icon="📎")
 st.write('<h1 style="text-align:center;">Habla con el chat</h1>', unsafe_allow_html=True)
 
-if name:
+if 'name' in st.query_params :
+    name = st.query_params["name"]
     st.write(f"Has pasado el nombre con valor: {name}")
-if role:
+
+if 'role' in st.query_params:
+    role = st.query_params["role"]
     st.write(f"Has pasado el role con valor: {role}")
 
 if 'generated' not in st.session_state:
