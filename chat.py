@@ -7,74 +7,73 @@ BASE_URL = "https://chat-with-your-data-api.azurewebsites.net"
 def chat():
     st.session_state.id = "a3c09d9b-4baf-4c8a-92f1-1d33cb65e4f8"
     st.session_state.username = "alice"
-    st.set_page_config(page_title="IRR Tutorial", page_icon="📎")
+    total_tokens = st.session_state.tokens_available
+    st.session_state.total_cost = 12.3
+    
+    st.set_page_config(page_title="Asistente de RR:HH", page_icon="📎")
 
     st.write('<h1 style="text-align:center;">Habla con el chat</h1>', unsafe_allow_html=True)
 
-    if 'generated' not in st.session_state:
-        st.session_state['generated'] = []
-    if 'past' not in st.session_state:
-        st.session_state['past'] = []
-    if 'cost' not in st.session_state:
-        st.session_state['cost'] = []
-    if 'total_tokens' not in st.session_state:
-        st.session_state['total_tokens'] = []
-    if 'total_cost' not in st.session_state:
-        st.session_state['total_cost'] = 0.0
-
-    st.sidebar.title("Aquí se muestran los controles")
+    st.sidebar.title(f"Bienvenid@ : {st.session_state.username}")
     counter_placeholder = st.sidebar.empty()
-    counter_placeholder.write(f"Total de tokens: ${st.session_state.tokens_available}")
+    counter_placeholder.write(f"Total de tokens: ${total_tokens}")
     counter_placeholder.write(f"Coste total de la conversación: ${st.session_state['total_cost']:.5f}", key="clear")
-    clear_button = st.sidebar.button("Limpiar conversación", key="clear")
 
-
-    if clear_button:
-        st.session_state['past'] = []
-        st.session_state['cost'] = []
-        st.session_state['total_cost'] = 0.0
-        counter_placeholder.write(f"Coste total de la conversación: ${st.session_state['total_cost']:.5f}")
-
-    response_container = st.container()
     prompt = st.chat_input("Dime, cual es tu consulta")
 
-    if prompt:
-        db_type, total_tokens, retail_price = get_token_comsuption(prompt)
-
-        st.session_state['past'].append(prompt)
-        st.session_state['cost'].append(retail_price)
-        st.session_state['total_tokens'].append(total_tokens)
-
-        if total_tokens < st.session_state.tokens_available:
-            query = generate_sql_query(prompt, db_type)
-            results = execute_sql_query(query=query, db_type=db_type)
-            st.session_state['total_tokens'].append(total_tokens)
-        else :
-            st.warning("No tiene sufiente tokens")
-        st.session_state['generated'].append(results)
+    with st.chat_message("Asistente"):
+        st.write("¡Hola! 👋 ¿cómo puedo ayudarte?")
     
-    if st.session_state['generated']:
-        with response_container:
-            for i in range(len(st.session_state['generated'])):
-                st.write(f"**Usuario:** {st.session_state['past'][i]}")
+    if prompt:
+        with st.chat_message("Usuario"):
+            st.write(prompt)
+        db_type, tokens_used, retail_price = get_token_comsuption(prompt)
+
+        with st.chat_message("Asistente"):
+            st.write(f"El total de tokens que va a utilizar son: {tokens_used} con un precio de: {retail_price}")
+            st.write("¿Desea realizar la petición?")
+
+        # Aquí se introduce un estado para esperar la respuesta del usuario
+        if "user_response" not in st.session_state:
+            col1, col2 = st.columns(2)  # Crear dos columnas para los botones
+            with col1:
+                if st.button("Aceptar", use_container_width=True):
+                    st.session_state.user_response = "Aceptar"  # Guardar la respuesta
+                    st.rerun()  # Volver a cargar la app para evaluar la respuesta
+            with col2:
+                if st.button("Cancelar", use_container_width=True):
+                    st.session_state.user_response = "Cancelar"  # Guardar la respuesta
+                    st.rerun()  # Volver a cargar la app para evaluar la respuesta
+
+            st.stop()  # Detener el código hasta que se haga clic en un botón
+
+    # Verificar la respuesta del usuario
+    if 'user_response' in st.session_state:
+        if st.session_state.user_response == "Aceptar":
+            if total_tokens >= tokens_used:
+                query = generate_sql_query(prompt, db_type)
+                results = execute_sql_query(query=query, db_type=db_type)
                 if results:
                     # Procesar resultados para mostrar en una tabla
                     if len(results) > 0:
-                        # Asumimos que el primer elemento es el encabezado
                         header = results[0].split(" | ")
                         data = [row.split(" | ") for row in results[1:]]  # Todos los demás son registros
                         
                         # Convertir a DataFrame para mostrar como tabla
                         df = pd.DataFrame(data, columns=header)
-                        st.write("Resultados de la consulta SQL:")
-                        st.table(df)  # Muestra la tabla
+                        
+                        with st.chat_message("Asistente"):
+                            st.write("Esta es tu query en SQL:")
+                            st.code(query, language="sql")
+                            st.write("Resultados de la consulta SQL:")
+                            st.table(df)  # Muestra la tabla
                     else:
                         st.write("No se encontraron resultados.")
-                st.write(f"**Asistente:** {st.session_state['generated'][i]}")
-               
-
-            counter_placeholder.write(f"Coste total de la conversación: ${st.session_state['total_cost']:.5f}")
-
+            else:
+                st.write("No tiene suficientes tokens.")
+        else:
+            with st.chat_message("Asistente"):
+                st.write("No se puede realizar la solicitud.")
 
 def get_token_comsuption(prompt):
     data = {
@@ -83,14 +82,14 @@ def get_token_comsuption(prompt):
     }
 
     url = f"{BASE_URL}/api/Query/GetTokensConsumption"
-    response = requests.post( url, json=data)
+    response = requests.post(url, json=data)
     
     if response.status_code == 200:
         data = response.json().get("data")
         db_type = data.get("selectedDatabaseType")
-        total_tokens = data.get("tokenCount")
+        tokens_used = data.get("tokenCount")
         retail_price = data.get("retailPrice")
-        return db_type, total_tokens, retail_price
+        return db_type, tokens_used, retail_price
     else:
         st.error("Error al obtener consumo de tokens")
         return None
@@ -126,4 +125,4 @@ def execute_sql_query(query, db_type):
         return data.get("results", [])
     else:
         st.error("Error al ejecutar la consulta SQL")
-        return None
+        return None 
