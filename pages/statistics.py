@@ -1,9 +1,12 @@
 import streamlit as st
 import requests
+import os
+from dotenv import load_dotenv
 import pandas as pd
 import matplotlib.pyplot as plt
 
-BASE_URL = "https://chat-with-your-data-api.azurewebsites.net"
+load_dotenv()
+BASE_URL = os.getenv("BASE_URL")
 
 # Configure the API URL
 api_url = f"{BASE_URL}/api/Query/GetTokensConsumptionHistory/a3c09d9b-4baf-4c8a-92f1-1d33cb65e4f8"  # Replace with your API URL

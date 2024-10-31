@@ -1,9 +1,13 @@
 import streamlit as st
 import requests
+import os
+from dotenv import load_dotenv
 import pandas as pd
 from PIL import Image
 
-BASE_URL = "https://chat-with-your-data-api.azurewebsites.net"
+load_dotenv()
+BASE_URL = os.getenv("BASE_URL")
+
 
 def image_to_base64(image):
         import io
@@ -161,6 +165,14 @@ def get_token_comsuption(prompt):
         tokens_used = data.get("tokenCount")
         retail_price = data.get("retailPrice")
         return db_type, tokens_used, retail_price
+
+    elif response.status_code == 400:
+        st.session_state.messages.append({
+                "role": "assistant",
+                "content": "No database was found that meets your query"
+            })
+        return None, None, None
+
     else:
         st.error("Error to get token consumption")
         return None, None, None
