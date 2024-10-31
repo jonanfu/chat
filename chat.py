@@ -161,6 +161,12 @@ def get_token_comsuption(prompt):
         tokens_used = data.get("tokenCount")
         retail_price = data.get("retailPrice")
         return db_type, tokens_used, retail_price
+    elif response.status_code == 400:
+        st.session_state.messages.append({
+                "role": "assistant",
+                "content": "No se encontro una base de datos que cumple con su consulta"
+            })
+        return None, None, None
     else:
         st.error("Error to get token consumption")
         return None, None, None
